@@ -5,9 +5,11 @@ import { UserRole, MemberTier } from "@prisma/client";
 import { prisma, SAFE_USER_SELECT } from "./prisma";
 import { normalizePhoneNumber } from "./persian";
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "civic-network-super-secret-jwt-key-2024-secure-mp-crm"
-);
+const rawSecret = process.env.JWT_SECRET || (process.env.NODE_ENV === "production" ? "" : "civic-network-super-secret-jwt-key-2024-secure-mp-crm");
+if (!rawSecret) {
+  throw new Error("CRITICAL SECURITY ERROR: JWT_SECRET environment variable is missing in production.");
+}
+const JWT_SECRET = new TextEncoder().encode(rawSecret);
 
 export const COOKIE_NAME = "civic_session_token";
 
@@ -106,7 +108,8 @@ export function generateAndStoreOtp(rawPhone: string): { code: string; phone: st
     phone,
   });
 
-  console.log(`[SMS Gateway Mock] Sent OTP ${code} to ${phone}`);
+  const maskedPhone = phone.length >= 11 ? `${phone.slice(0, 4)}***${phone.slice(-4)}` : phone;
+  console.log(`[SMS Gateway Mock] Sent OTP ${process.env.NODE_ENV === "production" ? "*****" : code} to ${maskedPhone}`);
   return { code, phone };
 }
 

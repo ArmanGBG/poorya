@@ -3,6 +3,16 @@ import { getSessionFromRequest, isAuthorized } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logAuditEvent } from "@/lib/audit";
 
+function escapeHtml(str: string | null | undefined): string {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 /**
  * Private Document Storage Route (Architectural Fix #4)
  * Strictly restricted to ADMIN_VERIFIER and REPRESENTATIVE_VIP.
@@ -23,10 +33,10 @@ export async function GET(
 
   const { id } = params;
 
-  // Find the organizational profile that owns this document
+  // Find the organizational profile that owns this document (strictly by profile ID)
   const profile = await prisma.organizationalProfile.findFirst({
     where: {
-      OR: [{ id }, { userId: id }],
+      id,
       documentUrl: { not: null },
     },
     include: {
@@ -61,8 +71,13 @@ export async function GET(
     userAgent: req.headers.get("user-agent"),
   });
 
+  const safeFullName = escapeHtml(profile.user.fullName);
+  const safeOrgName = escapeHtml(profile.organization.name);
+  const safeDept = escapeHtml(profile.customDepartment);
+  const safeJob = escapeHtml(profile.jobTitle);
+  const safeDocUrl = escapeHtml(profile.documentUrl);
+
   // Return a secure simulated document preview payload
-  // In a full production deployment with S3/MinIO, this would stream the decrypted buffer.
   const securePreviewHtml = `
     <!DOCTYPE html>
     <html lang="fa" dir="rtl">
@@ -84,11 +99,11 @@ export async function GET(
         <div class="card">
           <div class="badge">سند محرمانه دولتی - مشاهده شده توسط دبیرخانه</div>
           <h2>کارت شناسایی / حکم کارگزینی</h2>
-          <div class="row"><span class="label">نام و نام خانوادگی:</span><span class="val">${profile.user.fullName}</span></div>
-          <div class="row"><span class="label">سازمان متبوع:</span><span class="val">${profile.organization.name}</span></div>
-          <div class="row"><span class="label">واحد / دایره:</span><span class="val">${profile.customDepartment}</span></div>
-          <div class="row"><span class="label">عنوان سمت:</span><span class="val">${profile.jobTitle}</span></div>
-          <div class="row"><span class="label">شناسه ذخیره‌سازی امن:</span><span class="val">${profile.documentUrl}</span></div>
+          <div class="row"><span class="label">نام و نام خانوادگی:</span><span class="val">${safeFullName}</span></div>
+          <div class="row"><span class="label">سازمان متبوع:</span><span class="val">${safeOrgName}</span></div>
+          <div class="row"><span class="label">واحد / دایره:</span><span class="val">${safeDept}</span></div>
+          <div class="row"><span class="label">عنوان سمت:</span><span class="val">${safeJob}</span></div>
+          <div class="row"><span class="label">شناسه ذخیره‌سازی امن:</span><span class="val">${safeDocUrl}</span></div>
           <div class="watermark">این سند صرفاً جهت احراز هویت شغلی در شبکه نخبگان صادر شده و هرگونه نسخه‌برداری ممنوع است.</div>
         </div>
       </body>

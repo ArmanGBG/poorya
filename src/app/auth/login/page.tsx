@@ -19,8 +19,8 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [demoCode, setDemoCode] = useState<string | null>(null);
 
-  async function handleSendOtp(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSendOtp(e?: React.SyntheticEvent) {
+    e?.preventDefault();
     if (!phone.trim()) {
       setError("لطفاً شماره تلفن همراه خود را وارد نمایید.");
       return;

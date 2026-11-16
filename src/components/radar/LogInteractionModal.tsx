@@ -33,14 +33,14 @@ export default function LogInteractionModal({
   onClose,
   onSuccess,
 }: LogInteractionModalProps) {
-  if (!isOpen || !insider) return null;
-
   const [subject, setSubject] = useState("");
   const [type, setType] = useState<string>("REQUESTED_FAVOR_FROM_USER");
   const [outcome, setOutcome] = useState<string>("RESOLVED");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  if (!isOpen || !insider) return null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

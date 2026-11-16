@@ -69,12 +69,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Generate random 4-digit PIN if not provided
-    const pin = merchantPin && merchantPin.trim().length === 4
-      ? merchantPin.trim()
-      : Math.floor(1000 + Math.random() * 9000).toString();
+    // Validate 4-digit numeric PIN or generate random
+    let pin: string;
+    if (merchantPin && typeof merchantPin === "string" && /^\d{4}$/.test(merchantPin.trim())) {
+      pin = merchantPin.trim();
+    } else {
+      pin = Math.floor(1000 + Math.random() * 9000).toString();
+    }
 
-    const percent = Number(discountPercent) || 20;
+    const rawPercent = Number(discountPercent);
+    const percent = (!isNaN(rawPercent) && rawPercent >= 5 && rawPercent <= 90)
+      ? Math.round(rawPercent)
+      : 20;
     const tier = requiredTier === "VIP" ? MemberTier.VIP : MemberTier.STANDARD;
 
     const business = await prisma.partnerBusiness.create({

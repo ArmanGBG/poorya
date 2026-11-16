@@ -35,6 +35,10 @@ export default function DashboardHubPage() {
         return res.json();
       })
       .then((data) => {
+        if (!data.user) {
+          router.push("/auth/login?redirect=/dashboard");
+          return;
+        }
         setUser(data.user);
         setLoading(false);
       })

@@ -54,8 +54,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check tier eligibility: VIP offers require VIP tier
-    if (offer.requiredTier === MemberTier.VIP && session.tier !== MemberTier.VIP) {
+    // Check tier eligibility live from DB (so promotions take effect immediately without re-login)
+    const userRecord = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { tier: true },
+    });
+    const currentTier = userRecord?.tier || session.tier;
+
+    if (offer.requiredTier === MemberTier.VIP && currentTier !== MemberTier.VIP) {
       return NextResponse.json(
         {
           error: "این پیشنهاد منحصراً برای اعضای سطح طلایی (VIP) فعال است. با تکمیل اطلاعات شغلی خود، کارت عضویت خود را به VIP ارتقا دهید.",
@@ -89,14 +95,15 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Generate unique 6-digit code
+    // Generate unique 6-digit code using cryptographically secure randomInt
     let verificationCode = "";
     let isUnique = false;
     let attempts = 0;
 
-    while (!isUnique && attempts < 10) {
+    while (!isUnique && attempts < 15) {
       attempts++;
-      verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const randNum = require("crypto").randomInt(100000, 1000000);
+      verificationCode = randNum.toString();
       const existing = await prisma.discountRedemption.findUnique({
         where: { verificationCode },
       });

@@ -290,10 +290,10 @@ export default function DiscountsPage() {
                     </span>
                     <div className="flex items-center justify-center gap-3">
                       <span className="font-mono text-2xl font-black text-emerald-800 tracking-widest dir-ltr">
-                        {redemptionResult.redemption?.verificationCode}
+                        {redemptionResult.verificationCode || redemptionResult.redemption?.verificationCode}
                       </span>
                       <button
-                        onClick={() => copyCode(redemptionResult.redemption?.verificationCode)}
+                        onClick={() => copyCode(redemptionResult.verificationCode || redemptionResult.redemption?.verificationCode)}
                         className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 transition cursor-pointer"
                         title="کپی کد"
                       >
@@ -303,7 +303,7 @@ export default function DiscountsPage() {
                   </div>
 
                   <div className="bg-emerald-50 border border-emerald-200/80 rounded-2xl p-3 text-xs text-emerald-950 font-medium space-y-1">
-                    <p className="font-bold">مرکز همکار: {redemptionResult.business?.name}</p>
+                    <p className="font-bold">مرکز همکار: {redemptionResult.offer?.businessName || redemptionResult.business?.name}</p>
                     <p>درصد تخفیف: {toPersianDigits(redemptionResult.offer?.discountPercent)}٪</p>
                   </div>
 

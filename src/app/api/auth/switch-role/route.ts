@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     } else if (user.role === UserRole.CONNECTOR) {
       redirectTo = "/connector";
     } else if (user.role === UserRole.ADMIN_CLUB) {
-      redirectTo = "/admin/club";
+      redirectTo = "/admin/merchants";
     }
 
     const response = NextResponse.json({
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
       name: COOKIE_NAME,
       value: token,
       httpOnly: true,
-      secure: false,
+      secure: false, // Strictly dev route
       sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60,
       path: "/",

@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "civic-network-super-secret-jwt-key-2024-secure-mp-crm"
-);
+const rawSecret = process.env.JWT_SECRET || (process.env.NODE_ENV === "production" ? "" : "civic-network-super-secret-jwt-key-2024-secure-mp-crm");
+if (!rawSecret) {
+  throw new Error("CRITICAL SECURITY ERROR: JWT_SECRET environment variable is missing in production.");
+}
+const JWT_SECRET = new TextEncoder().encode(rawSecret);
 
 const COOKIE_NAME = "civic_session_token";
 
@@ -17,6 +19,16 @@ const ROUTE_PERMISSIONS = [
   {
     prefix: "/api/radar",
     allowedRoles: ["REPRESENTATIVE_VIP"],
+    api: true,
+  },
+  {
+    prefix: "/admin/merchants",
+    allowedRoles: ["ADMIN_CLUB", "ADMIN_VERIFIER", "REPRESENTATIVE_VIP"],
+    api: false,
+  },
+  {
+    prefix: "/api/admin/merchants",
+    allowedRoles: ["ADMIN_CLUB", "ADMIN_VERIFIER", "REPRESENTATIVE_VIP"],
     api: true,
   },
   {
@@ -45,8 +57,8 @@ const ROUTE_PERMISSIONS = [
     api: true,
   },
   {
-    prefix: "/admin/club",
-    allowedRoles: ["ADMIN_CLUB", "REPRESENTATIVE_VIP"],
+    prefix: "/admin",
+    allowedRoles: ["ADMIN_CLUB", "ADMIN_VERIFIER", "REPRESENTATIVE_VIP"],
     api: false,
   },
   {
@@ -136,12 +148,16 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
+    "/rep-radar",
     "/rep-radar/:path*",
     "/api/radar/:path*",
+    "/admin",
     "/admin/:path*",
     "/api/admin/:path*",
+    "/connector",
     "/connector/:path*",
     "/api/verification/:path*",
+    "/dashboard",
     "/dashboard/:path*",
   ],
 };
