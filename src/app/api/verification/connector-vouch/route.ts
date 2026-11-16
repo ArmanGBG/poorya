@@ -116,6 +116,7 @@ export async function POST(req: NextRequest) {
           where: { id: profileId },
           data: {
             verificationStatus: VerificationStatus.VERIFIED,
+            vouchedByUserId: session.userId,
             verifiedAt: new Date(),
           },
         }),

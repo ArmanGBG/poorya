@@ -36,7 +36,7 @@ export default function UpgradeVipPage() {
   // Conditional fields
   const [connectorInput, setConnectorInput] = useState("");
   const [officeLandline, setOfficeLandline] = useState("");
-  const [hasUploadedDoc, setHasUploadedDoc] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,8 +82,8 @@ export default function UpgradeVipPage() {
           connectorCodeOrPhone:
             verificationMethod === "CONNECTOR_VOUCH" ? connectorInput.trim() : undefined,
           documentUrl:
-            verificationMethod === "DOCUMENT_UPLOAD" && hasUploadedDoc
-              ? "/private-docs/sample-decree.enc"
+            verificationMethod === "DOCUMENT_UPLOAD" && uploadedFileName
+              ? `/private-docs/${uploadedFileName}`
               : undefined,
         }),
       });
@@ -386,20 +386,31 @@ export default function UpgradeVipPage() {
               تصویر کارت پرسنلی یا حکم کارگزینی:
             </label>
             <div className="border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center hover:border-slate-400 transition bg-white">
-              <FileUp className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-              <div className="text-xs text-slate-700 font-bold mb-1">
-                {hasUploadedDoc ? "✅ فایل ضمیمه شد (ذخیره‌سازی رمزنگاری‌شده)" : "مدرک شغلی خود را انتخاب کنید"}
+              <FileUp className="w-8 h-8 text-emerald-700 mx-auto mb-2" />
+              <div className="text-xs text-slate-800 font-bold mb-1">
+                {uploadedFileName ? `✅ فایل انتخاب شد: ${uploadedFileName}` : "مدرک شغلی خود را انتخاب فرمایید"}
               </div>
               <p className="text-[10px] text-slate-400 mb-3">
                 فرمت‌های مجاز: JPG, PNG, PDF (حداکثر ۵ مگابایت)
               </p>
-              <button
-                type="button"
-                onClick={() => setHasUploadedDoc(true)}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold py-2 px-5 rounded-xl border border-slate-300 transition cursor-pointer"
+              <input
+                type="file"
+                id="decree-upload-input"
+                accept="image/*,application/pdf"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setUploadedFileName(file.name);
+                  }
+                }}
+              />
+              <label
+                htmlFor="decree-upload-input"
+                className="inline-block bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold py-2.5 px-5 rounded-xl border border-slate-300 transition cursor-pointer"
               >
-                {hasUploadedDoc ? "تغییر فایل" : "انتخاب مدرک"}
-              </button>
+                {uploadedFileName ? "تغییر فایل انتخابی" : "انتخاب مدرک از سیستم"}
+              </label>
             </div>
           </div>
         )}
