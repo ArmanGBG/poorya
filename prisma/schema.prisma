@@ -1,0 +1,275 @@
+// Prisma schema for Civic Development & Loyalty Network
+// "باشگاه متخصصین، نخبگان و حامیان توسعه شهری"
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -------------------------------------------------------------
+// ENUMS
+// -------------------------------------------------------------
+
+enum UserRole {
+  MEMBER_PUBLIC       // عضو عادی
+  MEMBER_VIP          // عضو ویژه / رابط سازمانی
+  CONNECTOR           // سرشاخه / معرف مورد اعتماد
+  ADMIN_CLUB          // ادمین باشگاه تخفیفات (محروم از CRM سازمانی)
+  ADMIN_VERIFIER      // ادمین دبیرخانه / احراز هویت
+  REPRESENTATIVE_VIP  // پنل اختصاصی نماینده / رئیس دفتر
+}
+
+enum MemberTier {
+  STANDARD // سطح نقره‌ای / عضو عادی
+  VIP      // سطح طلایی / رابط سازمانی تایید شده
+}
+
+enum OrganizationCategory {
+  BANK                  // بانک‌ها و موسسات مالی
+  GOVERNMENT_OFFICE     // ادارات کل و دستگاه‌های اجرایی دولتی
+  MUNICIPALITY          // شهرداری، مناطق و سازمان‌های وابسته
+  HOSPITAL_UNIVERSITY   // دانشگاه‌ها، بیمارستان‌ها و مراکز درمانی
+  JUDICIARY_LAW         // دادگستری، ثبت اسناد و مراجع قضایی
+  MILITARY_SECURITY     // نهادهای انتظامی و اداری نظامی
+  PRIVATE_COMPANY       // شرکت‌ها و صنایع بزرگ خصوصی
+  GUILD_UNION           // اصناف، اتاق بازرگانی و اتحادیه‌ها
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum VerificationMethod {
+  DOCUMENT_UPLOAD     // آپلود حکم/کارت پرسنلی با رمزنگاری
+  CONNECTOR_VOUCH     // تایید توسط سرشاخه معتمد
+  OFFICE_LANDLINE_CALL// استعلام از طریق تلفن ثابت و داخلی
+  ADMIN_DIRECT        // احراز مستقیم توسط دبیرخانه
+}
+
+enum InfluenceLevel {
+  DECISION_MAKER // مدیر تصمیم‌گیرنده / معاون
+  KEY_EXPERT     // کارشناس کلیدی / امضا طلایی
+  INFORMED_STAFF // کارمند مطلع و باسابقه
+}
+
+enum IntimacyLevel {
+  INNER_CIRCLE // حلقه اول / پای کار
+  SUPPORTER    // حامی معتمد
+  CLUB_ONLY    // صرفاً عضو باشگاه
+}
+
+enum InteractionType {
+  REQUESTED_FAVOR_FROM_USER // پیگیری کار مردم از کاربر
+  DID_FAVOR_FOR_USER        // حل مشکل یا گره‌گشایی برای کاربر
+  GREETING_CALL             // احوالپرسی و تبریک مناسبتی
+}
+
+enum InteractionOutcome {
+  RESOLVED     // انجام شد و حل شد
+  IN_PROGRESS  // در حال پیگیری
+  UNSUCCESSFUL // به نتیجه نرسید
+}
+
+// -------------------------------------------------------------
+// MODELS
+// -------------------------------------------------------------
+
+model User {
+  id              String      @id @default(uuid())
+  phone           String      @unique // کلید اصلی اهراز هویت (بدون نیاز به کد ملی)
+  fullName        String
+  neighborhood    String?     // محله / منطقه سکونت
+  role            UserRole    @default(MEMBER_PUBLIC)
+  tier            MemberTier  @default(STANDARD)
+  isPhoneVerified Boolean     @default(false)
+
+  // Web of Trust / شبکه معرف‌ها
+  referredById    String?
+  referredBy      User?       @relation("ReferralTree", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals       User[]      @relation("ReferralTree")
+
+  referralCode    String?     @unique // کد معرف اختصاصی برای Connectors
+
+  // One-to-Many: یک فرد ممکن است چند سمت داشته باشد (استاد دانشگاه + عضو نظام پزشکی + بیمارستان)
+  profiles        OrganizationalProfile[]
+
+  // Vouched by Connector
+  vouchedProfiles OrganizationalProfile[] @relation("ConnectorVouch")
+
+  // Verified by Admin Verifier
+  verifiedProfiles OrganizationalProfile[] @relation("AdminVerifier")
+
+  // لاگ تماس‌ها و پیگیری‌ها
+  loggedInteractions InteractionLog[]     @relation("LoggedBy")
+
+  // تخفیف‌ها
+  redemptions     DiscountRedemption[]
+
+  // لاگ‌های امنیتی
+  auditLogs       AuditLog[]
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([phone])
+  @@index([role])
+  @@index([tier])
+}
+
+model Organization {
+  id        String               @id @default(uuid())
+  name      String               // نام رسمی و استاندارد اداره/بانک
+  category  OrganizationCategory
+  city      String               @default("تهران")
+
+  // ساختار درختی ادارات (مثال: بانک مرکزی -> سرپرستی -> شعبه ونک)
+  parentId  String?
+  parent    Organization?        @relation("OrgTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Organization[]       @relation("OrgTree")
+
+  profiles  OrganizationalProfile[]
+
+  createdAt DateTime             @default(now())
+
+  @@index([name])
+  @@index([category])
+  @@index([city])
+}
+
+model OrganizationalProfile {
+  id                 String              @id @default(uuid())
+  userId             String
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  organizationId     String
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  customDepartment   String              // نام واحد / دایره / اداره تابعه
+  jobTitle           String              // عنوان سمت
+  isPrimary          Boolean             @default(true) // سمت اصلی فرد
+
+  // فیلدهای احراز هویت
+  verificationStatus VerificationStatus  @default(PENDING)
+  verificationMethod VerificationMethod  @default(OFFICE_LANDLINE_CALL)
+  officeDirectPhone  String?             // شماره تلفن مستقیم یا داخلی محل کار
+  documentUrl        String?             // مسیر فایل امن در حافظه خصوصی (نه public)
+
+  vouchedByUserId    String?
+  vouchedByUser      User?               @relation("ConnectorVouch", fields: [vouchedByUserId], references: [id], onDelete: SetNull)
+
+  verifiedByAdminId  String?
+  verifiedByAdmin    User?               @relation("AdminVerifier", fields: [verifiedByAdminId], references: [id], onDelete: SetNull)
+  verifiedAt         DateTime?
+  rejectionReason    String?
+
+  // -------------------------------------------------------------
+  // فیلدهای محرمانه CRM نماینده (مطلقا مخفی از کاربر و ادمین باشگاه)
+  // -------------------------------------------------------------
+  influenceLevel     InfluenceLevel      @default(INFORMED_STAFF)
+  intimacyLevel      IntimacyLevel       @default(CLUB_ONLY)
+  favorBalance       Int                 @default(0) // مثبت: نماینده براش کار کرده / منفی: اون برای دفتر کار راه انداخته
+  secretAdminNotes   String?             // یادداشت‌های محرمانه روحیات و نحوه ارتباط
+
+  interactions       InteractionLog[]
+
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([verificationStatus])
+  @@index([influenceLevel])
+  @@index([intimacyLevel])
+}
+
+model InteractionLog {
+  id              String             @id @default(uuid())
+  orgProfileId    String
+  orgProfile      OrganizationalProfile @relation(fields: [orgProfileId], references: [id], onDelete: Cascade)
+
+  loggedByUserId  String
+  loggedByUser    User               @relation("LoggedBy", fields: [loggedByUserId], references: [id], onDelete: Restrict)
+
+  subject         String             // موضوع پیگیری
+  type            InteractionType
+  outcome         InteractionOutcome @default(IN_PROGRESS)
+  notes           String?            // توضیحات گفتگو
+  createdAt       DateTime           @default(now())
+
+  @@index([orgProfileId])
+  @@index([loggedByUserId])
+  @@index([createdAt])
+}
+
+model PartnerBusiness {
+  id          String         @id @default(uuid())
+  name        String         // نام کسب‌وکار همکار
+  category    String         // دسته (رستوران، دندانپزشکی، ورزشی...)
+  address     String
+  phone       String
+  logoUrl     String?
+  isActive    Boolean        @default(true)
+  merchantPin String         @default("1234") // پین اختصاصی اعتبارسنجی آفلاین فروشگاه
+
+  offers      DiscountOffer[]
+
+  createdAt   DateTime       @default(now())
+}
+
+model DiscountOffer {
+  id              String               @id @default(uuid())
+  businessId      String
+  business        PartnerBusiness      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  title           String               // مثلا: ۳۰٪ تخفیف کلینیک تخصصی دندانپزشکی
+  discountPercent Int
+  requiredTier    MemberTier           @default(STANDARD) // استاندارد یا VIP
+  terms           String?              // شرایط استفاده
+  expiresAt       DateTime?
+
+  redemptions     DiscountRedemption[]
+
+  createdAt       DateTime             @default(now())
+
+  @@index([requiredTier])
+  @@index([businessId])
+}
+
+model DiscountRedemption {
+  id                   String        @id @default(uuid())
+  userId               String
+  user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  offerId              String
+  offer                DiscountOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  verificationCode     String        @unique // کد ۶ رقمی منحصر به فرد اعتبارسنجی
+  isVerifiedByMerchant Boolean       @default(false)
+  verifiedAt           DateTime?
+  redeemedAt           DateTime      @default(now())
+
+  @@index([verificationCode])
+  @@index([userId])
+}
+
+model AuditLog {
+  id              String    @id @default(uuid())
+  userId          String?
+  user            User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action          String    // e.g. "RADAR_SEARCH", "PROFILE_VIEW", "INTERACTION_LOG"
+  query           String?   // متن جستجو شده
+  targetProfileId String?   // آی‌دی پروفایل مشاهده شده
+  ipAddress       String?
+  userAgent       String?
+  createdAt       DateTime  @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
